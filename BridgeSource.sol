@@ -36,7 +36,7 @@ import { SafeERC20, IERC20, SafeMath } from "./vendor/SafeERC20.sol";
 // `toSource` refers to the address on the source (current) chain
 // `toX` refers to the address on the target (crossing) chain
 
-abstract contract BridgeSource is IBridgeSource, Witness {
+contract BridgeSource is IBridgeSource, Witness {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
@@ -107,27 +107,31 @@ abstract contract BridgeSource is IBridgeSource, Witness {
         minimumDeposit = minDeposit_;
     }
 
+    bool public paused = false;
+
+    function setPasued(bool paused_) onlyOwner() external {
+        paused = paused_;
+    }
+
     // IBridgeSource overrides
 
-    function deposit(uint256 amount, string memory toX)
-        external
-        override
-        payable
-    {
+    function deposit(uint256 amount, string calldata toX) external override payable {
+        require(!paused, "Paused");
+        uint256 amount_ = amount;
         if (native) {
-            require(msg.value == amount, "Inconsistent with amount and value");
+            require(msg.value == amount_, "Inconsistent with amount and value");
         } else {
             require(msg.value == 0, "Non-native asset cannot have a value");
 
             uint256 before = _asset.balanceOf(address(this));
-            _asset.safeTransferFrom(_msgSender(), address(this), amount);
-            amount = _asset.balanceOf(address(this)).sub(before);
+            _asset.safeTransferFrom(_msgSender(), address(this), amount_);
+            amount_ = _asset.balanceOf(address(this)).sub(before);
         }
 
-        require(amount >= minimumDeposit, "Amount is smaller than minimum");
-        amount = _chargeForFixedFee(amount);
+        require(amount_ >= minimumDeposit, "Amount smaller than minimum");
+        amount_ = _chargeForFixedFee(amount_);
 
-        emit Deposit(_msgSender(), toX, amount);
+        emit Deposit(_msgSender(), toX, toX, amount_);
     }
 
     function _chargeForFixedFee(uint256 amount) private returns (uint256) {
@@ -137,15 +141,11 @@ abstract contract BridgeSource is IBridgeSource, Witness {
         return amount;
     }
 
-    function withdrawOf(address guy) external override view returns (uint256) {
-        return witnessedAllowance[guy];
-    }
+    // Witness overrides
 
-    function withdraw() external override {
-        uint256 allowance = witnessedAllowance[_msgSender()];
-        require(allowance != 0, "No available asset to withdraw");
-        witnessedAllowance[_msgSender()] = 0;
-        _withdrawTo(_msgSender(), allowance);
+    function onWitnessApproved(string memory txHash, address payable to, uint256 amount) internal override {
+        txHash;
+        _withdrawTo(to, amount);
     }
 
     /// @dev This need strict requirement checks
@@ -155,6 +155,5 @@ abstract contract BridgeSource is IBridgeSource, Witness {
         } else {
             IERC20(_asset).safeTransfer(to, amount);
         }
-        emit Withdraw(to, amount);
     }
 }

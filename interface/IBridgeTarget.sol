@@ -17,28 +17,20 @@ interface IBridgeTarget is IERC20 {
      */
     function asset() external view returns (string memory);
 
-    /**
-     * @dev Returns the amount of x-asset that could be mint
-     */
-    function mintOf(address guy) external view returns (uint256);
-
     // Entrances
 
     /**
      * @dev Burn x-asset for withdraw allowance to the source chain address
      */
-    function burn(address account, string memory toX, uint256 amount) external;
+    function burn(string memory toX, uint256 amount) external;
 
     /**
-     * @dev Mint all available x-asset (by deposit source chain assets)
+     * @dev Burn x-asset for withdraw allowance to the source chain address
      */
-    function mint() external;
+    function burnFrom(address account, string memory toX, uint256 amount) external;
 
     // Events
 
     /// @dev Emits when a burn is succeed (not sync to the source chain yet)
-    event Burn(address indexed account, string indexed toSource, uint256 amount);
-
-    /// @dev Emits when a mint is succeed
-    event Mint(address indexed guy, uint256 amount);
+    event Burn(address indexed account, string indexed toSource, string toSourcePlain, uint256 amount);
 }

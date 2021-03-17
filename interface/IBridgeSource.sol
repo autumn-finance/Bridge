@@ -15,28 +15,15 @@ interface IBridgeSource {
      */
     function asset() external view returns (address);
 
-    /**
-     * @dev Returns the amount of asset that could be withdrawn
-     */
-    function withdrawOf(address guy) external view returns (uint256);
-
     // Entrances
 
     /**
      * @dev Deposit for minting cross-chain asset to the target cross-chain address
      */
-    function deposit(uint256 amount, string memory toX) external payable;
-
-    /**
-     * @dev Withdraw all available asset (by burn x-chain assets) from bridge
-     */
-    function withdraw() external;
+    function deposit(uint256 amount, string calldata toX) external payable;
 
     // Events
 
     /// @dev Emits when a deposit is succeed (not sync to the target chain yet)
-    event Deposit(address from, string indexed toX, uint256 amount);
-
-    /// @dev Emits when a withdraw is succeed
-    event Withdraw(address indexed guy, uint256 amount);
+    event Deposit(address from, string indexed toX, string toXPlain, uint256 amount);
 }

@@ -29,30 +29,34 @@ contract BridgeTarget is IBridgeTarget, Witness, ERC20 {
         asset = assetName;
     }
 
+    bool public paused = false;
+
+    function setPasued(bool paused_) onlyOwner() external {
+        paused = paused_;
+    }
+
     // IBridgeTarget overrides
 
-    function mintOf(address guy) external override view returns (uint256) {
-        return witnessedAllowance[guy];
+    function burn(string memory toSource, uint256 amount) external override {
+        burnFrom(_msgSender(), toSource, amount);
     }
 
-    /// @dev Burns with specific source chain address to receive allowance of withdraw
-    function burn(address account, string memory toSource, uint256 amount) external override {
+    function burnFrom(address account, string memory toSource, uint256 amount) public override {
+        require(!paused, "Paused");
         // from ERC20Burnable
-        uint256 currentAllowance = allowance(account, _msgSender());
-        require(currentAllowance >= amount, "Burn amount exceeds allowance");
-
-        _approve(account, _msgSender(), currentAllowance - amount);
+        if (account != _msgSender()) {
+            uint256 currentAllowance = allowance(account, _msgSender());
+            require(currentAllowance >= amount, "Burn amount exceeds allowance");
+            _approve(account, _msgSender(), currentAllowance - amount);
+        }
         _burn(account, amount);
-        emit Burn(account, toSource, amount);
+        emit Burn(account, toSource, toSource, amount);
     }
 
-    /// @dev Mints (claims) all available cross-chain assets that approved by witness
-    function mint() external override {
-        uint256 allowance = witnessedAllowance[_msgSender()];
-        require(allowance != 0, "No available cross-chain asset to mint");
+    // Witness overrides
 
-        witnessedAllowance[_msgSender()] = 0;
-        _mint(_msgSender(), allowance);
-        emit Mint(_msgSender(), allowance);
+    function onWitnessApproved(string memory txHash, address payable to, uint256 amount) internal override {
+        txHash;
+        _mint(to, amount);
     }
 }

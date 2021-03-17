@@ -41,9 +41,6 @@ abstract contract Witness is Ownable {
     /// @dev All witnesses of burns
     mapping (string => address[]) public txWitnesses;
 
-    /// @dev The allowance amount of user for the operation need witness
-    mapping (address => uint256) public witnessedAllowance;
-
     /*
      * Control
      */
@@ -64,6 +61,10 @@ abstract contract Witness is Ownable {
 
     /// @dev The array of all witnesses for quering
     address[] public witnessList;
+
+    function listWitnesses() external view returns (address[] memory) {
+        return witnessList;
+    }
 
     function setWitnessPermission(address guy, bool permit) onlyOwner() external {
         require(witnessPermission[guy] != permit, "Permission already set");
@@ -127,7 +128,7 @@ abstract contract Witness is Ownable {
      * @notice Witness a burn on the other chain with target account on the local chain
      *  Call `canWitness` to check the eligibility
      */
-    function witness(string memory hash, address to, uint256 amount)
+    function witness(string memory hash, address payable to, uint256 amount)
         external
         returns (bool)
     {
@@ -148,23 +149,25 @@ abstract contract Witness is Ownable {
 
         txWitnesses[hash].push(_msgSender());
         uint256 count = witnessData[hash].witness = data.witness.add(1);
-        emit WitnessVisited(hash, to, amount, _msgSender());
+        emit WitnessVisited(hash, hash, to, amount, _msgSender());
 
         // check for witness count
         if (count >= minimumWitness) {
             witnessData[hash].approved = true;
-            witnessedAllowance[to] = witnessedAllowance[to].add(amount);
-            emit WitnessApproved(hash, to, amount);
+            onWitnessApproved(hash, to, amount);
+            emit WitnessApproved(hash, hash, to, amount);
         }
 
         return true;
     }
 
+    function onWitnessApproved(string memory txHash, address payable to, uint256 amount) internal virtual;
+
     /// @dev Emits when a tx finally approved by enough witnesses
-    event WitnessApproved(string indexed burnTx, address indexed to, uint256 amount);
+    event WitnessApproved(string indexed txHash, string txHashPlain, address indexed to, uint256 amount);
 
     /// @dev Emits everytime when a witness applied to the (unapprove yet) tx
-    event WitnessVisited (string indexed burnTx, address indexed to, uint256 amount, address witness);
+    event WitnessVisited (string indexed txHash, string txHashPlain, address indexed to, uint256 amount, address witness);
 
     /**
      * @dev Forcily restart the witness program to a cross-chain tx
